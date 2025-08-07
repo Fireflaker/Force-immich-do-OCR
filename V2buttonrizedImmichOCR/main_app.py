@@ -48,10 +48,11 @@ class OCRWorkerThread(QThread):
     ocr_completed = pyqtSignal(str, object)  # text, pixmap
     ocr_failed = pyqtSignal(str)  # error message
     
-    def __init__(self, pixmap, full_page: bool = False, parent=None):
+    def __init__(self, pixmap, full_page: bool = False, parent=None, geometry_is_screenshot: bool = False):
         super().__init__(parent)
         self.pixmap = pixmap
         self.ocr_processor = OCRProcessor()
+        self.geometry_is_screenshot = geometry_is_screenshot
         # Adjust OCR parameters for full page mode (lower text ratio)
         if full_page:
             self.ocr_processor.config.min_text_length = max(1, self.ocr_processor.config.min_text_length // 2)
@@ -62,8 +63,23 @@ class OCRWorkerThread(QThread):
             # Convert pixmap to PIL image
             pil_img = qpixmap_to_pil(self.pixmap)
             
-            # Extract text
-            text = self.ocr_processor.extract_text(pil_img)
+            # Auto-detect mode using raw OCR and geometry hint
+            # Step 1: quick raw OCR (sparse if looks like screenshot)
+            try:
+                quick_raw = self.ocr_processor.extract_raw(
+                    pil_img,
+                    psm=(config.ocr.psm_sparse if self.geometry_is_screenshot else None),
+                )
+            except Exception:
+                quick_raw = ""
+
+            is_snap = self.ocr_processor.is_snapchat_screenshot_text(quick_raw)
+            # Choose PSM
+            chosen_psm = config.ocr.psm_sparse if (is_snap or self.geometry_is_screenshot) else config.ocr.psm_filled
+            # Final OCR with chosen PSM
+            final_raw = self.ocr_processor.extract_raw(pil_img, psm=chosen_psm)
+            # Apply filtering (extracts username for Snapchat pattern)
+            text = self.ocr_processor._filter_text_with_reply_pattern(final_raw)
             print(f"[DEBUG WORKER] OCR extracted text: {text[:80]}")
             
             # Validate text quality, but be more lenient in loop mode
@@ -506,11 +522,24 @@ class MainWindow(QMainWindow):
         self.status_widget.update_status("Processing OCR...")
         self.ocr_button.setEnabled(False)
         
-        # Start OCR processing in background thread
-        self.ocr_worker = OCRWorkerThread(crop_pixmap, full_page=self.full_page_checkbox.isChecked(), parent=self)
-        self.ocr_worker.ocr_completed.connect(self._on_ocr_completed)
-        self.ocr_worker.ocr_failed.connect(self._on_ocr_failed)
-        self.ocr_worker.start()
+        # Before starting OCR, attempt to detect if asset looks like a screenshot by geometry
+        def _start_worker_with_dims(w: int, h: int):
+            geom_is_ss = self.ocr_processor.is_screenshot_by_geometry(w, h) if (w and h) else False
+            # Start OCR processing in background thread with geometry hint
+            self.ocr_worker = OCRWorkerThread(
+                crop_pixmap,
+                full_page=self.full_page_checkbox.isChecked(),
+                parent=self,
+                geometry_is_screenshot=geom_is_ss,
+            )
+            self.ocr_worker.ocr_completed.connect(self._on_ocr_completed)
+            self.ocr_worker.ocr_failed.connect(self._on_ocr_failed)
+            self.ocr_worker.start()
+
+        try:
+            self.web_view.get_current_image_dimensions(_start_worker_with_dims)
+        except Exception:
+            _start_worker_with_dims(0, 0)
 
     def _on_ocr_completed(self, text: str, pixmap):
         """Handle successful OCR completion."""

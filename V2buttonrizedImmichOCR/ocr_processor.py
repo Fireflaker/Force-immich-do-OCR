@@ -162,6 +162,48 @@ class OCRProcessor:
         
         return True, "Text quality is acceptable."
 
+    # ---------------- New helpers for auto-detection -----------------
+    def extract_raw(self, pil_img: Image.Image, psm: Optional[int] = None) -> str:
+        """
+        Run OCR and return the raw text (no filtering), with optional PSM override.
+        """
+        processed_img = self.preprocess_image(pil_img)
+        tess_config = self.config.tesseract_config
+        if psm is not None:
+            # replace existing --psm if present, else append
+            import re
+            if re.search(r"--psm\s+\d+", tess_config):
+                tess_config = re.sub(r"--psm\s+\d+", f"--psm {psm}", tess_config)
+            else:
+                tess_config = f"{tess_config} --psm {psm}".strip()
+        return pytesseract.image_to_string(processed_img, config=tess_config).strip()
+
+    def is_snapchat_screenshot_text(self, raw_text: str) -> bool:
+        """Detect Snapchat reply UI via OCR text (e.g., 'Reply to ...')."""
+        import re
+        if not raw_text:
+            return False
+        patterns = [
+            r"\bReply to\b",
+            r"\bSend a Chat\b",
+            r"\bSend a Snap\b",
+        ]
+        raw_upper = raw_text
+        return any(re.search(p, raw_upper, re.IGNORECASE) for p in patterns)
+
+    def is_screenshot_by_geometry(self, width: int, height: int) -> bool:
+        """Heuristic: known sizes or aspect ratios within tolerance."""
+        if width <= 0 or height <= 0:
+            return False
+        if (width, height) in config.ocr.screenshot_sizes or (height, width) in config.ocr.screenshot_sizes:
+            return True
+        aspect = max(width, height) / min(width, height)
+        tol = config.ocr.aspect_ratio_tolerance
+        for ar in config.ocr.screenshot_aspect_ratios:
+            if abs(aspect - ar) <= tol:
+                return True
+        return False
+
 
 def qpixmap_to_pil(qpixmap) -> Image.Image:
     """Convert QPixmap to PIL Image."""
