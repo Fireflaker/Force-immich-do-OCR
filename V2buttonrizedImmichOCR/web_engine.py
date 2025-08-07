@@ -242,6 +242,46 @@ class AutomationWebView(QWebEngineView):
             traceback.print_exc()
             return False
 
+    def get_current_image_dimensions(self, finished_cb) -> None:
+        """Query the DOM for the displayed image and return (width, height) via callback.
+        Tries the main photo viewer image and fallback to any large <img>.
+        """
+        script = r"""
+            (function() {
+                function dims(el) {
+                    if (!el) return null;
+                    const w = el.naturalWidth || el.videoWidth || el.width;
+                    const h = el.naturalHeight || el.videoHeight || el.height;
+                    if (!w || !h) return null;
+                    return { width: w, height: h };
+                }
+                // Immich photo viewer image has dynamic binding; try to find the largest image on screen
+                const imgs = Array.from(document.querySelectorAll('img'));
+                let best = null;
+                let bestArea = 0;
+                for (const img of imgs) {
+                    const d = dims(img);
+                    if (d) {
+                        const area = d.width * d.height;
+                        if (area > bestArea) { bestArea = area; best = d; }
+                    }
+                }
+                return best || null;
+            })();
+        """
+        try:
+            def _cb(result):
+                try:
+                    if isinstance(result, dict) and 'width' in result and 'height' in result:
+                        finished_cb(int(result['width']), int(result['height']))
+                    else:
+                        finished_cb(0, 0)
+                except Exception:
+                    finished_cb(0, 0)
+            self.page().runJavaScript(script, _cb)
+        except Exception:
+            finished_cb(0, 0)
+
     def set_crop_rect(self, rect: QRect):
         """Set the crop rectangle."""
         self.crop_rect = rect

@@ -58,6 +58,10 @@ build/
 *.gz
 *.7z
 
+# Local backup/copy directories
+*Copy_backup*/
+V2buttonrizedImmichOCR - Copy_backup/
+
 # PyInstaller
 *.manifest
 *.spec.cache/

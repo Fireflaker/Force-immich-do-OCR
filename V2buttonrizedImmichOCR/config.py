@@ -20,10 +20,32 @@ class OCRConfig:
     tesseract_config: str = "--psm 6"
     min_text_length: int = 3
     excluded_patterns: List[str] = None
+    # Detection and mode tuning
+    screenshot_sizes: List[tuple] = None  # list of (width, height)
+    screenshot_aspect_ratios: List[float] = None  # e.g., 2.1667 (19.5:9), 2.2222 (20:9)
+    aspect_ratio_tolerance: float = 0.02  # 2%
+    psm_sparse: int = 11  # Tesseract PSM for sparse text
+    psm_filled: int = 6   # Tesseract PSM for block/paragraph text
     
     def __post_init__(self):
         if self.excluded_patterns is None:
             self.excluded_patterns = ["NO USER", "CAPTCHA", "LOADING"]
+        if self.screenshot_sizes is None:
+            # Common Android/iOS screenshot sizes; extend as needed
+            self.screenshot_sizes = [
+                (1080, 2412), (2412, 1080),
+                (720, 1608), (1608, 720),
+                (1440, 3200), (3200, 1440),
+                (1179, 2556), (2556, 1179),  # iPhone 15 Pro
+                (1290, 2796), (2796, 1290),  # iPhone 15 Pro Max
+                (1284, 2778), (2778, 1284),  # iPhone 12/13/14 Pro Max
+                (1080, 2340), (2340, 1080),
+            ]
+        if self.screenshot_aspect_ratios is None:
+            # Typical modern phone aspect ratios
+            self.screenshot_aspect_ratios = [
+                19.5/9, 20/9, 19.3/9, 19/9, 18.5/9, 16/9
+            ]
 
 
 @dataclass
