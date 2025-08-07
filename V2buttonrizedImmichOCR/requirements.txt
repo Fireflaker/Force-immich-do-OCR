@@ -1,0 +1,4 @@
+PyQt6>=6.4.0
+PyQt6-WebEngine>=6.4.0
+Pillow>=9.0.0
+pytesseract>=0.3.10

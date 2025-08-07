@@ -1,0 +1,57 @@
+name: Weblate checks
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions: {}
+
+jobs:
+  pre-job:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      should_run: ${{ steps.found_paths.outputs.i18n == 'true' && github.head_ref != 'chore/translations'}}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - id: found_paths
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        with:
+          filters: |
+            i18n:
+              - 'i18n/!(en)**\.json'
+
+  enforce-lock:
+    name: Check Weblate Lock
+    needs: [pre-job]
+    runs-on: ubuntu-latest
+    permissions: {}
+    if: ${{ needs.pre-job.outputs.should_run == 'true' }}
+    steps:
+      - name: Check weblate lock
+        run: |
+          if [[ "false" = $(curl https://hosted.weblate.org/api/components/immich/immich/lock/ | jq .locked) ]]; then
+            exit 1
+          fi
+      - name: Find Pull Request
+        uses: juliangruber/find-pull-request-action@952b3bb1ddb2dcc0aa3479e98bb1c2d1a922f096 # v1.10.0
+        id: find-pr
+        with:
+          branch: chore/translations
+      - name: Fail if existing weblate PR
+        if: ${{ steps.find-pr.outputs.number }}
+        run: exit 1
+  success-check-lock:
+    name: Weblate Lock Check Success
+    needs: [enforce-lock]
+    runs-on: ubuntu-latest
+    permissions: {}
+    if: always()
+    steps:
+      - uses: immich-app/devtools/actions/success-check@68f10eb389bb02a3cf9d1156111964c549eb421b # 0.0.4
+        with:
+          needs: ${{ toJSON(needs) }}
