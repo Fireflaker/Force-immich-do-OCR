@@ -1,0 +1,5 @@
+pytesseract
+Pillow
+requests
+watchdog
+PySide6==6.9.1

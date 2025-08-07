@@ -1,0 +1,35 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["local>immich-app/.github:renovate-config"],
+  "packageRules": [
+    {
+      "matchFileNames": [
+        "machine-learning/**"
+      ],
+      "groupName": "machine-learning",
+      "rangeStrategy": "in-range-only",
+    },
+    {
+      "matchFileNames": [
+        "mobile/**"
+      ],
+      "groupName": "mobile",
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "addLabels": [
+        "📱mobile"
+      ]
+    }
+  ],
+  "ignorePaths": [
+    "mobile/openapi/pubspec.yaml",
+    "mobile/ios",
+    "mobile/android"
+  ],
+  "ignoreDeps": [
+    "http",
+    "intl"
+  ]
+}

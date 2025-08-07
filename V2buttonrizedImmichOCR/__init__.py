@@ -1,0 +1,1 @@
+# Immich OCR Browser - Modular Package

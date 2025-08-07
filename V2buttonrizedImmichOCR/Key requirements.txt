@@ -1,0 +1,102 @@
+Core workflow:
+Select area to ocr, do ocr with filter, write ocr results to description field after focusing on it (required for it to save), write out(save), go to next photo.
+
+
+Key requirements:
+
+Retain login at new lunch - no need to log in with username and password every time
+Add a refresh button
+Make two seperate user adjustable delay for image to load, and for description to save after write out.
+
+
+
+
+Timeline
+COMPLETE AUTOMATION LOOP TIMELINE WITH UI UPDATES (ms)
+
+0ms    START LOOP BUTTON CLICKED
+1ms    - _start_loop() called
+2ms    - Buttons disabled
+3ms    - loop_active = true
+4ms    - loop_state = "OCR"
+5ms    - First _automation_step() called
+
+CYCLE START: 10ms
+10ms   - _automation_step sees "OCR" state
+11ms   - _run_ocr starts
+12ms   - Capture image:
+        • If full_page: grab entire view
+        • If cropped: capture_crop_area()
+13ms   - Scale captured image for preview
+14ms   - Update bottom preview:
+        • crop_preview_label.setPixmap(scaled_pixmap)
+        • Clear any old text
+15ms   - Status: "Processing OCR..."
+16ms   - OCRWorkerThread starts with pixmap
+17-70ms - Tesseract OCR processing happening in thread
+71ms   - OCR text result ready
+72ms   - _on_ocr_completed called with text
+73ms   - Update UI with result:
+        • Status: "OCR completed"
+        • Bottom preview text updated with OCR result
+        • (Same preview image stays)
+74ms   - Ready to start injection
+
+TEXT INJECTION: 75ms
+75ms   - inject_text_with_automation starts
+76ms   - JS injection script begins
+77-127ms - Find textarea + focus (up to 50ms)
+128ms  - Textarea focused
+129-229ms - First delay (100ms)
+230ms  - Text value set
+231ms  - Input events dispatched
+232-332ms - Second delay (100ms)
+333ms  - Blur triggered to save
+334-3334ms - Wait for save notification (up to 3s)
+
+SAVE & NAVIGATE: 3335ms
+3335ms - Save confirmed
+3336ms - Status updated
+3337ms - WAIT_SAVE state starts
+3338-3838ms - Save delay (500ms)
+3839ms - NAVIGATE state starts
+3840ms - Clear OCR text
+3841ms - _navigate_next called
+
+NAVIGATION SEQUENCE: 3842ms
+3842ms - JS navigation script starts
+3843ms - Try selectors for next button
+3844ms - Find 'next' button in DOM
+3845ms - Click next button
+3846ms - If button not found, try keyboard event
+3847ms - ArrowRight key event dispatched
+3848ms - Navigation triggered
+3849ms - Page starts loading
+
+LOAD & SETTLE: 3850ms
+3850ms - WAIT_LOAD state starts
+3851ms - Old page unloading
+3852ms - New page loading starts
+3853-5853ms - Load delay (2000ms default)
+   - During this time:
+   - New image loads
+   - DOM rebuilds
+   - JavaScript initializes
+   - Page becomes interactive
+5854ms - Page fully loaded
+5855-6855ms - Extra render delay (1000ms)
+   - Ensures image is fully rendered
+   - Allows any animations to complete
+   - Lets page stabilize for OCR
+6856ms - Ready for next OCR
+
+CYCLE COMPLETE: 6857ms
+6857ms - Jump to 10ms for next cycle
+
+STOP LOOP CLICKED: Any ms
+0ms    - _stop_loop called
+1ms    - loop_active = false
+2ms    - Current cycle completes its current state
+3ms    - Next _automation_step sees !loop_active and returns
+4ms    - Buttons re-enabled
+5ms    - Status updated "Loop stopped"

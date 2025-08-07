@@ -1,0 +1,12 @@
+{
+  "name": "ImmichOCR_Modular",
+  "version": "3.0.0",
+  "build_date": "1754293134.5667634",
+  "features": [
+    "Background operation - no focus required",
+    "Multiple instance support",
+    "Advanced OCR preprocessing",
+    "Comprehensive automation solutions",
+    "Modular, maintainable codebase"
+  ]
+}
